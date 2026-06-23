@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Feedback Analyser Agent</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue: #1a56db; --blue-light: #e8f0fe; --blue-mid: #3b82f6;
+  --green: #047857; --green-light: #d1fae5;
+  --red: #b91c1c; --red-light: #fee2e2;
+  --amber: #92400e; --amber-light: #fef3c7;
+  --gray-light: #f9fafb; --gray-mid: #e5e7eb;
+  --border: #e5e7eb; --text: #111827; --muted: #6b7280;
+  --radius: 10px; --shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; color: var(--text); min-height: 100vh; }
+
+header { background: #fff; border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; gap: 1rem; height: 60px; flex-wrap: wrap; }
+.logo { width: 32px; height: 32px; background: var(--blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+header h1 { font-size: 16px; font-weight: 600; }
+header p { font-size: 13px; color: var(--muted); margin-left: auto; }
+
+.main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+.api-banner { background: #fffbeb; border: 1px solid #fcd34d; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.api-banner label { font-size: 13px; font-weight: 500; color: #92400e; white-space: nowrap; }
+.api-banner input { flex: 1; min-width: 200px; border: 1px solid #fcd34d; border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: monospace; background: #fff; outline: none; color: var(--text); }
+.api-banner input:focus { border-color: var(--blue); }
+.api-banner small { font-size: 12px; color: #92400e; width: 100%; }
+
+.input-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); margin-bottom: 1.5rem; }
+.input-card label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+.input-card small { font-size: 12px; color: var(--muted); display: block; margin-bottom: 10px; }
+textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 180px; outline: none; color: var(--text); background: var(--gray-light); transition: border 0.15s; }
+textarea:focus { border-color: var(--blue-mid); background: #fff; }
+.btn-row { display: flex; gap: 10px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+.btn { padding: 9px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s; }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary { background: var(--gray-light); color: var(--muted); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--gray-mid); }
+.item-count { font-size: 13px; color: var(--muted); margin-left: auto; }
+
+.progress-wrap { display: none; margin-top: 12px; }
+.progress-label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.progress-bar { height: 4px; background: var(--gray-mid); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width 0.4s ease; }
+
+#results { display: none; }
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 8px; }
+.results-header h2 { font-size: 17px; font-weight: 600; }
+.badge { font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+.badge-blue { background: var(--blue-light); color: var(--blue); }
+
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem; }
+@media (max-width: 700px) { .grid-3 { grid-template-columns: 1fr 1fr; } .grid-2 { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .grid-3 { grid-template-columns: 1fr; } }
+
+.card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); }
+.card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 1rem; }
+
+.stat { text-align: center; }
+.stat-num { font-size: 32px; font-weight: 700; color: var(--blue); line-height: 1; }
+.stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+.sentiment-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
+.sentiment-bar .pos { background: #10b981; }
+.sentiment-bar .neu { background: #f59e0b; }
+.sentiment-bar .neg { background: #ef4444; }
+.sentiment-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-green { background: #10b981; } .dot-amber { background: #f59e0b; } .dot-red { background: #ef4444; }
+
+.theme-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.theme-name { font-size: 13px; color: var(--text); min-width: 130px; }
+.theme-track { flex: 1; background: var(--gray-mid); border-radius: 4px; height: 6px; overflow: hidden; }
+.theme-fill { height: 100%; background: var(--blue-mid); border-radius: 4px; }
+.theme-count { font-size: 12px; color: var(--muted); min-width: 24px; text-align: right; }
+
+.list-items { list-style: none; }
+.list-items li { font-size: 13px; color: var(--text); padding: 7px 0; border-bottom: 1px solid var(--gray-mid); display: flex; gap: 8px; align-items: flex-start; line-height: 1.5; }
+.list-items li:last-child { border-bottom: none; }
+.list-num { font-size: 11px; font-weight: 600; color: var(--blue); background: var(--blue-light); border-radius: 4px; padding: 1px 6px; flex-shrink: 0; margin-top: 1px; }
+
+.rec-item { padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid; }
+.rec-high { background: #fff7ed; border-color: #ea580c; }
+.rec-medium { background: #fefce8; border-color: #ca8a04; }
+.rec-low { background: var(--gray-light); border-color: #9ca3af; }
+.rec-priority { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.rec-high .rec-priority { color: #ea580c; } .rec-medium .rec-priority { color: #ca8a04; } .rec-low .rec-priority { color: #6b7280; }
+.rec-action { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+.rec-rationale { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+.items-table-wrap { overflow-x: auto; }
+.items-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
+.items-table th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 8px 10px; background: var(--gray-light); border-bottom: 1px solid var(--border); }
+.items-table td { padding: 8px 10px; border-bottom: 1px solid var(--gray-mid); vertical-align: top; line-height: 1.5; }
+.items-table tr:last-child td { border-bottom: none; }
+.pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 500; }
+.pill-pos { background: var(--green-light); color: var(--green); }
+.pill-neg { background: var(--red-light); color: var(--red); }
+.pill-neu { background: var(--amber-light); color: var(--amber); }
+.pill-high { background: #fde8d8; color: #c2410c; }
+.pill-medium { background: #fef9c3; color: #854d0e; }
+.pill-low { background: var(--gray-light); color: #6b7280; border: 1px solid var(--border); }
+
+.error-box { background: var(--red-light); border: 1px solid #fca5a5; border-radius: var(--radius); padding: 1rem 1.25rem; color: var(--red); font-size: 14px; margin-bottom: 1rem; line-height: 1.6; }
+
+.tab-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; overflow-x: auto; }
+.tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none; border-left: none; border-right: none; white-space: nowrap; }
+.tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+.footer-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.footer-note a { color: var(--blue); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24"><path d="M9 19l-7-7 7-7"/><path d="M15 5l7 7-7 7"/></svg>
+  </div>
+  <h1>Customer Feedback Analyser Agent</h1>
+  <p>Powered by Anthropic Claude</p>
+</header>
+
+<div class="main">
+
+  <div class="api-banner">
+    <label for="apiKey">🔑 Anthropic API Key</label>
+    <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+    <small>Your key is used only in your browser and never stored or sent anywhere except directly to Anthropic's API.</small>
+  </div>
+
+  <div class="input-card">
+    <label for="feedback">Paste customer feedback below</label>
+    <small>One feedback item per line. Numbers at the start (e.g. "1.") are automatically stripped.</small>
+    <textarea id="feedback" placeholder="1. The onboarding process is really confusing. I spent 20 minutes trying to figure out how to add my first team member.&#10;2. Love the dashboard design, very clean and intuitive.&#10;3. Would love a mobile app. I'm constantly on the go..."></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="analyseBtn" onclick="runAnalysis()">Analyse Feedback</button>
+      <button class="btn btn-secondary" onclick="loadSample()">Load sample data</button>
+      <span class="item-count" id="itemCount"></span>
+    </div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label" id="progressLabel">Starting analysis...</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div id="errorBox" class="error-box" style="display:none;"></div>
+  <div id="results"></div>
+
+  <div class="footer-note">
+    Built by <a href="https://www.linkedin.com/in/arunsoman-biography/" target="_blank">Arun Soman</a> —
+    <a href="https://github.com/arunsomangit/feedback-analyser-agent" target="_blank">View on GitHub</a>
+  </div>
+</div>
+
+<script>
+const SAMPLE = `1. The onboarding process is really confusing. I spent 20 minutes trying to figure out how to add my first team member.
+2. Love the dashboard design, very clean and intuitive.
+3. The system crashes every time I try to export a report with more than 500 rows.
+4. Would love a mobile app. I'm constantly on the go and checking things on my phone is painful.
+5. Pricing feels steep for small teams. Would be great to have a startup plan.
+6. The bulk import feature saved us hours. Exactly what we needed.
+7. Notifications are too frequent and I can't find where to customise them.
+8. Integration with Slack would be a game changer for our team.
+9. Dashboard takes forever to load when we have a large dataset. Sometimes over 30 seconds.
+10. The customer support team is fantastic — responded within an hour.
+11. Can't figure out how to set custom roles and permissions. The documentation doesn't help.
+12. Would love to be able to schedule automated reports to be emailed weekly.
+13. The search functionality is too basic. Can't filter by date range or status.
+14. Really impressed with how fast new features are being released.
+15. We keep getting logged out unexpectedly. Very frustrating during long sessions.
+16. The API documentation is excellent — made integration straightforward.
+17. Need better data visualisation options in the reporting module.
+18. Onboarding flow needs a proper guided tour. New users are lost without it.
+19. Performance has really improved lately — good work team.
+20. Would be great to have a dark mode option.
+21. The export function only supports CSV. Need PDF and Excel options.
+22. Love the new filtering options added last month.
+23. Session timeout is too aggressive — I lose my work frequently.
+24. Custom branding options would help us present this to our clients.
+25. The mobile experience is very poor. Buttons are too small and layout breaks.`;
+
+function loadSample() {
+  document.getElementById('feedback').value = SAMPLE;
+  updateCount();
+}
+
+function updateCount() {
+  const lines = document.getElementById('feedback').value.split('\n').filter(l => l.trim());
+  document.getElementById('itemCount').textContent = lines.length ? lines.length + ' items' : '';
+}
+
+document.getElementById('feedback').addEventListener('input', updateCount);
+
+function setProgress(pct, label) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.innerHTML = msg;
+  box.style.display = 'block';
+  document.getElementById('analyseBtn').disabled = false;
+  document.getElementById('progressWrap').style.display = 'none';
+}
+
+async function callClaude(apiKey, prompt, maxTokens) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'API error ' + resp.status);
+  }
+  const data = await resp.json();
+  return data.content[0].text.trim();
+}
+
+function parseItems(text) {
+  return text.split('\n')
+    .map(l => l.trim())
+    .filter(l => l)
+    .map(l => {
+      if (l[0] && l[0].match(/\d/) && l.length > 2) {
+        const parts = l.split(/\.\s|[\)]\s/, 2);
+        if (parts.length === 2 && parts[0].match(/^\d+$/)) return parts[1].trim();
+      }
+      return l;
+    })
+    .filter(l => l.length > 5);
+}
+
+function safeJSON(text) {
+  let t = text.trim();
+  if (t.startsWith('```')) { t = t.replace(/^```[a-z]*\n?/, '').replace(/```$/, '').trim(); }
+  return JSON.parse(t);
+}
+
+async function runAnalysis() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const rawText = document.getElementById('feedback').value.trim();
+
+  if (!apiKey) { showError('Please enter your Anthropic API key above.'); return; }
+  if (!rawText) { showError('Please enter some feedback to analyse.'); return; }
+
+  const items = parseItems(rawText);
+  if (items.length < 2) { showError('Please enter at least 2 feedback items (one per line).'); return; }
+
+  document.getElementById('analyseBtn').disabled = true;
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'block';
+  setProgress(10, 'Pass 1 — analysing individual items...');
+
+  try {
+    const feedbackText = items.map((item, i) => `${i+1}. ${item}`).join('\n');
+
+    // Pass 1
+    const pass1prompt = `You are a senior product analyst. Analyse each customer feedback item below.
+
+For EACH item return a JSON object with:
+- "item_number": integer
+- "text": original text
+- "theme": one of [UX/Navigation, Performance/Speed, Feature Request, Bug/Error, Pricing, Positive/Praise, Support/Documentation, Other]
+- "sentiment": one of [Positive, Neutral, Negative]
+- "key_point": 5-10 word summary
+- "priority_signal": one of [High, Medium, Low]
+
+Return ONLY a valid JSON array. No markdown, no explanation.
+
+FEEDBACK:
+${feedbackText}`;
+
+    setProgress(25, 'Pass 1 — sending to Claude...');
+    const pass1raw = await callClaude(apiKey, pass1prompt, 4096);
+    let analyses = [];
+    try { analyses = safeJSON(pass1raw); } catch(e) { analyses = []; }
+
+    setProgress(60, 'Pass 2 — synthesising insights...');
+
+    // Pass 2
+    const pass2input = analyses.length
+      ? JSON.stringify(analyses, null, 2)
+      : feedbackText;
+
+    const pass2prompt = `You are a senior Product Manager synthesising customer feedback.
+
+Produce a JSON report with exactly these keys:
+{
+  "themes": [{"name": "string", "count": number}],
+  "sentiment": {"positive": number, "neutral": number, "negative": number},
+  "pain_points": ["string", ...],
+  "feature_requests": ["string", ...],
+  "positive_highlights": ["string", ...],
+  "recommendations": [{"priority": "HIGH|MEDIUM|LOW", "action": "string", "rationale": "string"}, ...]
+}
+
+Return ONLY valid JSON. No markdown, no explanation. Be specific and evidence-based.
+
+INPUT:
+${pass2input}`;
+
+    setProgress(80, 'Pass 2 — generating PM report...');
+    const pass2raw = await callClaude(apiKey, pass2prompt, 2048);
+    let report = {};
+    try { report = safeJSON(pass2raw); } catch(e) {
+      throw new Error('Could not parse the synthesised report. Please try again.');
+    }
+
+    report.item_count = items.length;
+    report.item_analyses = analyses;
+
+    setProgress(100, 'Complete!');
+    setTimeout(() => {
+      document.getElementById('progressWrap').style.display = 'none';
+      renderResults(report);
+    }, 400);
+
+  } catch(e) {
+    showError('<strong>Error:</strong> ' + e.message + '<br><br>Common causes: invalid API key, network issue, or rate limit. Please check your key and try again.');
+  }
+}
+
+function sentClass(s) {
+  if (!s) return '';
+  const v = s.toLowerCase();
+  if (v === 'positive') return 'pill-pos';
+  if (v === 'negative') return 'pill-neg';
+  return 'pill-neu';
+}
+function prioClass(p) {
+  if (!p) return 'pill-low';
+  const v = p.toLowerCase();
+  if (v === 'high') return 'pill-high';
+  if (v === 'medium') return 'pill-medium';
+  return 'pill-low';
+}
+function recClass(p) {
+  if (!p) return 'rec-low';
+  const v = p.toLowerCase();
+  if (v === 'high') return 'rec-high';
+  if (v === 'medium') return 'rec-medium';
+  return 'rec-low';
+}
+
+function renderTable(items, cols) {
+  const headers = cols.map(c => `<th>${c.label}</th>`).join('');
+  const rows = items.map(it =>
+    '<tr>' + cols.map(c => `<td>${c.render(it)}</td>`).join('') + '</tr>'
+  ).join('');
+  return `<div class="items-table-wrap"><table class="items-table"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+let allAnalyses = [];
+
+function renderResults(data) {
+  allAnalyses = data.item_analyses || [];
+  const sent = data.sentiment || {};
+  const total = (sent.positive||0) + (sent.neutral||0) + (sent.negative||0) || 1;
+  const posP = Math.round((sent.positive||0)/total*100);
+  const neuP = Math.round((sent.neutral||0)/total*100);
+  const negP = 100 - posP - neuP;
+  const themes = data.themes || [];
+  const maxTheme = Math.max(...themes.map(t => t.count||0), 1);
+  const pains = data.pain_points || [];
+  const feats = data.feature_requests || [];
+  const highs = data.positive_highlights || [];
+  const recs  = data.recommendations || [];
+
+  const html = `
+  <div class="results-header">
+    <h2>Analysis Report</h2>
+    <span class="badge badge-blue">${data.item_count||0} items analysed</span>
+  </div>
+
+  <div class="grid-3">
+    <div class="card stat">
+      <div class="card-title">Total feedback</div>
+      <div class="stat-num">${data.item_count||0}</div>
+      <div class="stat-label">items processed</div>
+    </div>
+    <div class="card stat">
+      <div class="card-title">Negative sentiment</div>
+      <div class="stat-num" style="color:#ef4444">${negP}%</div>
+      <div class="stat-label">need attention</div>
+    </div>
+    <div class="card stat">
+      <div class="card-title">Feature requests</div>
+      <div class="stat-num" style="color:#8b5cf6">${feats.length}</div>
+      <div class="stat-label">identified</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Sentiment breakdown</div>
+      <div class="sentiment-bar">
+        <div class="pos" style="width:${posP}%"></div>
+        <div class="neu" style="width:${neuP}%"></div>
+        <div class="neg" style="width:${negP}%"></div>
+      </div>
+      <div class="sentiment-legend">
+        <div class="legend-item"><div class="dot dot-green"></div>Positive ${posP}%</div>
+        <div class="legend-item"><div class="dot dot-amber"></div>Neutral ${neuP}%</div>
+        <div class="legend-item"><div class="dot dot-red"></div>Negative ${negP}%</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Themes by frequency</div>
+      ${themes.map(t => `
+        <div class="theme-row">
+          <div class="theme-name">${t.name||''}</div>
+          <div class="theme-track"><div class="theme-fill" style="width:${Math.round((t.count||0)/maxTheme*100)}%"></div></div>
+          <div class="theme-count">${t.count||0}</div>
+        </div>`).join('')}
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Top pain points</div>
+      <ul class="list-items">${pains.map((p,i)=>`<li><span class="list-num">${i+1}</span>${p}</li>`).join('')}</ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Top feature requests</div>
+      <ul class="list-items">${feats.map((f,i)=>`<li><span class="list-num">${i+1}</span>${f}</li>`).join('')}</ul>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-title">PM recommendations</div>
+    ${recs.map(r=>`
+      <div class="rec-item ${recClass(r.priority)}">
+        <div class="rec-priority">${r.priority||'NOTE'}</div>
+        <div class="rec-action">${r.action||''}</div>
+        <div class="rec-rationale">${r.rationale||''}</div>
+      </div>`).join('')}
+  </div>
+
+  ${highs.length ? `
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-title">Positive highlights</div>
+    <ul class="list-items">${highs.map((h,i)=>`<li><span class="list-num">${i+1}</span>${h}</li>`).join('')}</ul>
+  </div>` : ''}
+
+  ${allAnalyses.length ? `
+  <div class="card">
+    <div class="card-title">Item-level analysis</div>
+    <div class="tab-row">
+      <button class="tab active" onclick="switchTab(event,'tab-all')">All (${allAnalyses.length})</button>
+      <button class="tab" onclick="switchTab(event,'tab-neg')">Negative (${allAnalyses.filter(i=>(i.sentiment||'').toLowerCase()==='negative').length})</button>
+      <button class="tab" onclick="switchTab(event,'tab-pos')">Positive (${allAnalyses.filter(i=>(i.sentiment||'').toLowerCase()==='positive').length})</button>
+      <button class="tab" onclick="switchTab(event,'tab-high')">High priority (${allAnalyses.filter(i=>(i.priority_signal||'').toLowerCase()==='high').length})</button>
+    </div>
+    <div id="tab-all">${renderTable(allAnalyses,[
+      {label:'#',render:i=>i.item_number||''},
+      {label:'Summary',render:i=>i.key_point||i.text||''},
+      {label:'Theme',render:i=>i.theme||''},
+      {label:'Sentiment',render:i=>`<span class="pill ${sentClass(i.sentiment)}">${i.sentiment||''}</span>`},
+      {label:'Priority',render:i=>`<span class="pill ${prioClass(i.priority_signal)}">${i.priority_signal||''}</span>`}
+    ])}</div>
+    <div id="tab-neg" style="display:none">${renderTable(allAnalyses.filter(i=>(i.sentiment||'').toLowerCase()==='negative'),[
+      {label:'#',render:i=>i.item_number||''},
+      {label:'Summary',render:i=>i.key_point||i.text||''},
+      {label:'Theme',render:i=>i.theme||''},
+      {label:'Priority',render:i=>`<span class="pill ${prioClass(i.priority_signal)}">${i.priority_signal||''}</span>`}
+    ])}</div>
+    <div id="tab-pos" style="display:none">${renderTable(allAnalyses.filter(i=>(i.sentiment||'').toLowerCase()==='positive'),[
+      {label:'#',render:i=>i.item_number||''},
+      {label:'Summary',render:i=>i.key_point||i.text||''},
+      {label:'Theme',render:i=>i.theme||''}
+    ])}</div>
+    <div id="tab-high" style="display:none">${renderTable(allAnalyses.filter(i=>(i.priority_signal||'').toLowerCase()==='high'),[
+      {label:'#',render:i=>i.item_number||''},
+      {label:'Summary',render:i=>i.key_point||i.text||''},
+      {label:'Theme',render:i=>i.theme||''},
+      {label:'Sentiment',render:i=>`<span class="pill ${sentClass(i.sentiment)}">${i.sentiment||''}</span>`}
+    ])}</div>
+  </div>` : ''}`;
+
+  const el = document.getElementById('results');
+  el.innerHTML = html;
+  el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('analyseBtn').disabled = false;
+}
+
+function switchTab(e, id) {
+  ['tab-all','tab-neg','tab-pos','tab-high'].forEach(t => {
+    const el = document.getElementById(t);
+    if (el) el.style.display = 'none';
+  });
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const target = document.getElementById(id);
+  if (target) target.style.display = 'block';
+  e.target.classList.add('active');
+}
+</script>
+</body>
+</html>
