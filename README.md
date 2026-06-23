@@ -24,7 +24,7 @@ Product Managers and Product Owners spend significant time manually triaging cus
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/feedback-analyser-agent.git
+git clone https://github.com/arunsomangit/feedback-analyser-agent.git
 cd feedback-analyser-agent
 
 # Install dependencies
