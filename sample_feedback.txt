@@ -1,0 +1,25 @@
+1. The onboarding process is really confusing. I spent 20 minutes trying to figure out how to add my first team member.
+2. Love the dashboard design, very clean and intuitive.
+3. The system crashes every time I try to export a report with more than 500 rows.
+4. Would love a mobile app. I'm constantly on the go and checking things on my phone is painful.
+5. Pricing feels steep for small teams. Would be great to have a startup plan.
+6. The bulk import feature saved us hours. Exactly what we needed.
+7. Notifications are too frequent and I can't find where to customise them.
+8. Integration with Slack would be a game changer for our team.
+9. Dashboard takes forever to load when we have a large dataset. Sometimes over 30 seconds.
+10. The customer support team is fantastic — responded within an hour.
+11. Can't figure out how to set custom roles and permissions. The documentation doesn't help.
+12. Would love to be able to schedule automated reports to be emailed weekly.
+13. The search functionality is too basic. Can't filter by date range or status.
+14. Really impressed with how fast new features are being released.
+15. We keep getting logged out unexpectedly. Very frustrating during long sessions.
+16. The API documentation is excellent — made integration straightforward.
+17. Need better data visualisation options in the reporting module.
+18. Onboarding flow needs a proper guided tour. New users are lost without it.
+19. Performance has really improved lately — good work team.
+20. Would be great to have a dark mode option.
+21. The export function only supports CSV. Need PDF and Excel options.
+22. Love the new filtering options added last month.
+23. Session timeout is too aggressive — I lose my work frequently.
+24. Custom branding options would help us present this to our clients.
+25. The mobile experience is very poor. Buttons are too small and layout breaks.
