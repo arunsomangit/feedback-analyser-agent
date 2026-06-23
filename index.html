@@ -30,6 +30,7 @@ header p { font-size: 13px; color: var(--muted); margin-left: auto; }
 .api-banner input { flex: 1; min-width: 200px; border: 1px solid #fcd34d; border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: monospace; background: #fff; outline: none; color: var(--text); }
 .api-banner input:focus { border-color: var(--blue); }
 .api-banner small { font-size: 12px; color: #92400e; width: 100%; }
+.api-link { font-size: 12px; color: var(--blue); text-decoration: none; }
 
 .input-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); margin-bottom: 1.5rem; }
 .input-card label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
@@ -113,7 +114,7 @@ textarea:focus { border-color: var(--blue-mid); background: #fff; }
 
 .error-box { background: var(--red-light); border: 1px solid #fca5a5; border-radius: var(--radius); padding: 1rem 1.25rem; color: var(--red); font-size: 14px; margin-bottom: 1rem; line-height: 1.6; }
 
-.tab-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; overflow-x: auto; }
+.tab-row { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1rem; overflow-x: auto; }
 .tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none; border-left: none; border-right: none; white-space: nowrap; }
 .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
 
@@ -128,15 +129,15 @@ textarea:focus { border-color: var(--blue-mid); background: #fff; }
     <svg viewBox="0 0 24 24"><path d="M9 19l-7-7 7-7"/><path d="M15 5l7 7-7 7"/></svg>
   </div>
   <h1>Customer Feedback Analyser Agent</h1>
-  <p>Powered by Anthropic Claude</p>
+  <p>Powered by Google Gemini</p>
 </header>
 
 <div class="main">
 
   <div class="api-banner">
-    <label for="apiKey">🔑 Anthropic API Key</label>
-    <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
-    <small>Your key is used only in your browser and never stored or sent anywhere except directly to Anthropic's API.</small>
+    <label for="apiKey">🔑 Gemini API Key</label>
+    <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off" />
+    <small>Free API key from <a class="api-link" href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> — no credit card required. Your key stays in your browser only.</small>
   </div>
 
   <div class="input-card">
@@ -190,6 +191,8 @@ const SAMPLE = `1. The onboarding process is really confusing. I spent 20 minute
 24. Custom branding options would help us present this to our clients.
 25. The mobile experience is very poor. Buttons are too small and layout breaks.`;
 
+const GEMINI_MODEL = 'gemini-2.0-flash';
+
 function loadSample() {
   document.getElementById('feedback').value = SAMPLE;
   updateCount();
@@ -215,33 +218,29 @@ function showError(msg) {
   document.getElementById('progressWrap').style.display = 'none';
 }
 
-async function callClaude(apiKey, prompt, maxTokens) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+async function callGemini(apiKey, prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const resp = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }]
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 }
     })
   });
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'API error ' + resp.status);
+    const msg = err.error?.message || 'API error ' + resp.status;
+    throw new Error(msg);
   }
   const data = await resp.json();
-  return data.content[0].text.trim();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return text.trim();
 }
 
 function parseItems(text) {
   return text.split('\n')
-    .map(l => l.trim())
-    .filter(l => l)
+    .map(l => l.trim()).filter(l => l)
     .map(l => {
       if (l[0] && l[0].match(/\d/) && l.length > 2) {
         const parts = l.split(/\.\s|[\)]\s/, 2);
@@ -254,7 +253,7 @@ function parseItems(text) {
 
 function safeJSON(text) {
   let t = text.trim();
-  if (t.startsWith('```')) { t = t.replace(/^```[a-z]*\n?/, '').replace(/```$/, '').trim(); }
+  t = t.replace(/^```[a-z]*\n?/, '').replace(/```$/, '').trim();
   return JSON.parse(t);
 }
 
@@ -262,7 +261,7 @@ async function runAnalysis() {
   const apiKey = document.getElementById('apiKey').value.trim();
   const rawText = document.getElementById('feedback').value.trim();
 
-  if (!apiKey) { showError('Please enter your Anthropic API key above.'); return; }
+  if (!apiKey) { showError('Please enter your Gemini API key above. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>.'); return; }
   if (!rawText) { showError('Please enter some feedback to analyse.'); return; }
 
   const items = parseItems(rawText);
@@ -277,106 +276,106 @@ async function runAnalysis() {
   try {
     const feedbackText = items.map((item, i) => `${i+1}. ${item}`).join('\n');
 
-    // Pass 1
+    // Pass 1 — item-level analysis
     const pass1prompt = `You are a senior product analyst. Analyse each customer feedback item below.
 
 For EACH item return a JSON object with:
 - "item_number": integer
-- "text": original text
+- "text": original text (truncated to 80 chars)
 - "theme": one of [UX/Navigation, Performance/Speed, Feature Request, Bug/Error, Pricing, Positive/Praise, Support/Documentation, Other]
 - "sentiment": one of [Positive, Neutral, Negative]
-- "key_point": 5-10 word summary
+- "key_point": 5-10 word summary of the core issue or praise
 - "priority_signal": one of [High, Medium, Low]
 
-Return ONLY a valid JSON array. No markdown, no explanation.
+Return ONLY a valid JSON array. No markdown, no explanation, no code fences.
 
-FEEDBACK:
+FEEDBACK ITEMS:
 ${feedbackText}`;
 
-    setProgress(25, 'Pass 1 — sending to Claude...');
-    const pass1raw = await callClaude(apiKey, pass1prompt, 4096);
+    setProgress(30, 'Pass 1 — Gemini is analysing items...');
+    const pass1raw = await callGemini(apiKey, pass1prompt);
     let analyses = [];
     try { analyses = safeJSON(pass1raw); } catch(e) { analyses = []; }
 
-    setProgress(60, 'Pass 2 — synthesising insights...');
+    setProgress(60, 'Pass 2 — synthesising PM insights...');
 
-    // Pass 2
+    // Pass 2 — synthesis
     const pass2input = analyses.length
       ? JSON.stringify(analyses, null, 2)
       : feedbackText;
 
-    const pass2prompt = `You are a senior Product Manager synthesising customer feedback.
+    const pass2prompt = `You are a senior Product Manager synthesising customer feedback into an executive report.
 
-Produce a JSON report with exactly these keys:
+Based on the input below, produce a JSON object with exactly these keys:
 {
   "themes": [{"name": "string", "count": number}],
   "sentiment": {"positive": number, "neutral": number, "negative": number},
-  "pain_points": ["string", ...],
-  "feature_requests": ["string", ...],
-  "positive_highlights": ["string", ...],
-  "recommendations": [{"priority": "HIGH|MEDIUM|LOW", "action": "string", "rationale": "string"}, ...]
+  "pain_points": ["string"],
+  "feature_requests": ["string"],
+  "positive_highlights": ["string"],
+  "recommendations": [{"priority": "HIGH or MEDIUM or LOW", "action": "string", "rationale": "string"}]
 }
 
-Return ONLY valid JSON. No markdown, no explanation. Be specific and evidence-based.
+Rules:
+- themes: list all identified themes with how many items belong to each
+- sentiment: count of items per sentiment type (must add up to total items)
+- pain_points: top 3-5 most critical issues, ranked by frequency and severity
+- feature_requests: top 3-5 most requested capabilities
+- positive_highlights: 2-3 things customers praised
+- recommendations: 3-5 prioritised PM actions with evidence-based rationale
 
-INPUT:
+Return ONLY valid JSON. No markdown, no code fences, no explanation.
+
+INPUT DATA:
 ${pass2input}`;
 
-    setProgress(80, 'Pass 2 — generating PM report...');
-    const pass2raw = await callClaude(apiKey, pass2prompt, 2048);
+    setProgress(80, 'Pass 2 — building report...');
+    const pass2raw = await callGemini(apiKey, pass2prompt);
     let report = {};
-    try { report = safeJSON(pass2raw); } catch(e) {
-      throw new Error('Could not parse the synthesised report. Please try again.');
-    }
+    try { report = safeJSON(pass2raw); }
+    catch(e) { throw new Error('Could not parse the report. Please try again.'); }
 
     report.item_count = items.length;
     report.item_analyses = analyses;
 
-    setProgress(100, 'Complete!');
+    setProgress(100, 'Analysis complete!');
     setTimeout(() => {
       document.getElementById('progressWrap').style.display = 'none';
       renderResults(report);
     }, 400);
 
   } catch(e) {
-    showError('<strong>Error:</strong> ' + e.message + '<br><br>Common causes: invalid API key, network issue, or rate limit. Please check your key and try again.');
+    showError('<strong>Error:</strong> ' + e.message + '<br><br>Common causes: invalid API key, network issue, or rate limit. Check your key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a>.');
   }
 }
 
 function sentClass(s) {
-  if (!s) return '';
-  const v = s.toLowerCase();
+  const v = (s||'').toLowerCase();
   if (v === 'positive') return 'pill-pos';
   if (v === 'negative') return 'pill-neg';
   return 'pill-neu';
 }
 function prioClass(p) {
-  if (!p) return 'pill-low';
-  const v = p.toLowerCase();
+  const v = (p||'').toLowerCase();
   if (v === 'high') return 'pill-high';
   if (v === 'medium') return 'pill-medium';
   return 'pill-low';
 }
 function recClass(p) {
-  if (!p) return 'rec-low';
-  const v = p.toLowerCase();
+  const v = (p||'').toLowerCase();
   if (v === 'high') return 'rec-high';
   if (v === 'medium') return 'rec-medium';
   return 'rec-low';
 }
 
 function renderTable(items, cols) {
+  if (!items.length) return '<p style="font-size:13px;color:var(--muted);padding:8px 0">No items in this category.</p>';
   const headers = cols.map(c => `<th>${c.label}</th>`).join('');
-  const rows = items.map(it =>
-    '<tr>' + cols.map(c => `<td>${c.render(it)}</td>`).join('') + '</tr>'
-  ).join('');
+  const rows = items.map(it => '<tr>' + cols.map(c => `<td>${c.render(it)}</td>`).join('') + '</tr>').join('');
   return `<div class="items-table-wrap"><table class="items-table"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-let allAnalyses = [];
-
 function renderResults(data) {
-  allAnalyses = data.item_analyses || [];
   const sent = data.sentiment || {};
   const total = (sent.positive||0) + (sent.neutral||0) + (sent.negative||0) || 1;
   const posP = Math.round((sent.positive||0)/total*100);
@@ -388,6 +387,38 @@ function renderResults(data) {
   const feats = data.feature_requests || [];
   const highs = data.positive_highlights || [];
   const recs  = data.recommendations || [];
+  const items = data.item_analyses || [];
+
+  const negItems = items.filter(i => (i.sentiment||'').toLowerCase() === 'negative');
+  const posItems = items.filter(i => (i.sentiment||'').toLowerCase() === 'positive');
+  const highItems = items.filter(i => (i.priority_signal||'').toLowerCase() === 'high');
+
+  const tableCols = {
+    all: [
+      {label:'#', render:i=>i.item_number||''},
+      {label:'Summary', render:i=>i.key_point||i.text||''},
+      {label:'Theme', render:i=>i.theme||''},
+      {label:'Sentiment', render:i=>`<span class="pill ${sentClass(i.sentiment)}">${i.sentiment||''}</span>`},
+      {label:'Priority', render:i=>`<span class="pill ${prioClass(i.priority_signal)}">${i.priority_signal||''}</span>`}
+    ],
+    neg: [
+      {label:'#', render:i=>i.item_number||''},
+      {label:'Summary', render:i=>i.key_point||i.text||''},
+      {label:'Theme', render:i=>i.theme||''},
+      {label:'Priority', render:i=>`<span class="pill ${prioClass(i.priority_signal)}">${i.priority_signal||''}</span>`}
+    ],
+    pos: [
+      {label:'#', render:i=>i.item_number||''},
+      {label:'Summary', render:i=>i.key_point||i.text||''},
+      {label:'Theme', render:i=>i.theme||''}
+    ],
+    high: [
+      {label:'#', render:i=>i.item_number||''},
+      {label:'Summary', render:i=>i.key_point||i.text||''},
+      {label:'Theme', render:i=>i.theme||''},
+      {label:'Sentiment', render:i=>`<span class="pill ${sentClass(i.sentiment)}">${i.sentiment||''}</span>`}
+    ]
+  };
 
   const html = `
   <div class="results-header">
@@ -465,39 +496,19 @@ function renderResults(data) {
     <ul class="list-items">${highs.map((h,i)=>`<li><span class="list-num">${i+1}</span>${h}</li>`).join('')}</ul>
   </div>` : ''}
 
-  ${allAnalyses.length ? `
+  ${items.length ? `
   <div class="card">
     <div class="card-title">Item-level analysis</div>
     <div class="tab-row">
-      <button class="tab active" onclick="switchTab(event,'tab-all')">All (${allAnalyses.length})</button>
-      <button class="tab" onclick="switchTab(event,'tab-neg')">Negative (${allAnalyses.filter(i=>(i.sentiment||'').toLowerCase()==='negative').length})</button>
-      <button class="tab" onclick="switchTab(event,'tab-pos')">Positive (${allAnalyses.filter(i=>(i.sentiment||'').toLowerCase()==='positive').length})</button>
-      <button class="tab" onclick="switchTab(event,'tab-high')">High priority (${allAnalyses.filter(i=>(i.priority_signal||'').toLowerCase()==='high').length})</button>
+      <button class="tab active" onclick="switchTab(event,'tab-all')">All (${items.length})</button>
+      <button class="tab" onclick="switchTab(event,'tab-neg')">Negative (${negItems.length})</button>
+      <button class="tab" onclick="switchTab(event,'tab-pos')">Positive (${posItems.length})</button>
+      <button class="tab" onclick="switchTab(event,'tab-high')">High priority (${highItems.length})</button>
     </div>
-    <div id="tab-all">${renderTable(allAnalyses,[
-      {label:'#',render:i=>i.item_number||''},
-      {label:'Summary',render:i=>i.key_point||i.text||''},
-      {label:'Theme',render:i=>i.theme||''},
-      {label:'Sentiment',render:i=>`<span class="pill ${sentClass(i.sentiment)}">${i.sentiment||''}</span>`},
-      {label:'Priority',render:i=>`<span class="pill ${prioClass(i.priority_signal)}">${i.priority_signal||''}</span>`}
-    ])}</div>
-    <div id="tab-neg" style="display:none">${renderTable(allAnalyses.filter(i=>(i.sentiment||'').toLowerCase()==='negative'),[
-      {label:'#',render:i=>i.item_number||''},
-      {label:'Summary',render:i=>i.key_point||i.text||''},
-      {label:'Theme',render:i=>i.theme||''},
-      {label:'Priority',render:i=>`<span class="pill ${prioClass(i.priority_signal)}">${i.priority_signal||''}</span>`}
-    ])}</div>
-    <div id="tab-pos" style="display:none">${renderTable(allAnalyses.filter(i=>(i.sentiment||'').toLowerCase()==='positive'),[
-      {label:'#',render:i=>i.item_number||''},
-      {label:'Summary',render:i=>i.key_point||i.text||''},
-      {label:'Theme',render:i=>i.theme||''}
-    ])}</div>
-    <div id="tab-high" style="display:none">${renderTable(allAnalyses.filter(i=>(i.priority_signal||'').toLowerCase()==='high'),[
-      {label:'#',render:i=>i.item_number||''},
-      {label:'Summary',render:i=>i.key_point||i.text||''},
-      {label:'Theme',render:i=>i.theme||''},
-      {label:'Sentiment',render:i=>`<span class="pill ${sentClass(i.sentiment)}">${i.sentiment||''}</span>`}
-    ])}</div>
+    <div id="tab-all">${renderTable(items, tableCols.all)}</div>
+    <div id="tab-neg" style="display:none">${renderTable(negItems, tableCols.neg)}</div>
+    <div id="tab-pos" style="display:none">${renderTable(posItems, tableCols.pos)}</div>
+    <div id="tab-high" style="display:none">${renderTable(highItems, tableCols.high)}</div>
   </div>` : ''}`;
 
   const el = document.getElementById('results');
